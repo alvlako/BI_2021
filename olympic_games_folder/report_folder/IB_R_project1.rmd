@@ -1,0 +1,180 @@
+---
+title: "IB_R_Project1"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+**Preparation to the analysis**. Installing package to read csv.files and plot graphs.
+```{r}
+library('readr')
+library('ggplot2')
+library('cowplot')
+```
+**Step 1. Retrieving of data** Writing function to create a data frame representing the result of merging files.
+The function accesses a zipped folder (by argument path), unpacks it and extracts files of a
+specified extension (by argument file_type). Then the function reads files one by one, creates corresponding dataframe and finally combines it to one data frame. Here the usage of the function is shown on olympic games results data.
+
+```{r, warning=FALSE, error = TRUE}
+merge_files = function(path,file_type){
+  files <- unzip(zipfile = path, files = file_type, list=TRUE)
+  df_fin = data.frame()
+  datalist = list()
+  for (f in files$Name){
+    print(f)
+    df = read.csv(unzip(zipfile = path, files =f))
+    df_fin = rbind(df_fin,df)
+  }
+  return(df_fin)
+}
+a_data = merge_files("C:/Users/Пользователь/Downloads/athlete_events.zip","*.csv")
+```
+
+**Step 2. Data quality check** The data is checked using summary function which provides the basic statistics overview for all variables. With the analysis, unreasonable results were found: Age values of 240, Height values of 340. These entries were replaced with NA as we can not guess the real values. Then the columns containing limited amount of factor-like values (Sport, Sex, Medal, City) are checked in order to detect any unreasonable entries. The obviously mistyped sport type "Footba" was replaced with "Football". Rows containing values corresponding to "Art Competitions" were also removed as not considering as a type of olympic sports.
+The alternative to these quality checks could be plotting boxplots for each quantitative variable to detect outliers or extracting the data on olympic games sports types, participants names, cities and so on and comparing with the provided data.
+
+```{r}
+summary(a_data)
+unique(a_data$Sport)
+unique(a_data$Sex)
+unique(a_data$Medal)
+unique(a_data$City)
+
+a_data[!is.na(a_data$Age) & a_data$Age==240.00,]$Age <- NA
+a_data[!is.na(a_data$Height) & a_data$Height==340.0,]$Height <- NA
+a_data[!is.na(a_data$Sport) & a_data$Sport=="Footba",]$Sport <- "Football"
+a_data[!is.na(a_data$Sex) & a_data$Sex=="G",]$Sex <- NA
+a_data = a_data[-c(a_data$Sport=="Art Competitions"),] 
+```
+
+**Step 3.** Age of youngest male and female participants are calculated.
+
+```{r}
+min(a_data[!is.na(a_data$Year) & a_data$Year==1992 & !is.na(a_data$Sex) & a_data$Sex == "M",]$Age,na.rm = TRUE)
+min(a_data[!is.na(a_data$Year) & a_data$Year==1992 & !is.na(a_data$Sex) & a_data$Sex == "F",]$Age,na.rm = TRUE)
+
+```
+
+**Step 4.** The mean value and standard deviations of height are calculated for male and female participants. 
+
+```{r}
+mean(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Height,na.rm = TRUE)
+mean(a_data[!is.na(a_data$Sex) & a_data$Sex == "F",]$Height,na.rm = TRUE)
+sd(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Height,na.rm = TRUE)
+sd(a_data[!is.na(a_data$Sex) & a_data$Sex == "F",]$Height,na.rm = TRUE)
+```
+
+**Step 5.** The mean value and standard deviation are calculated for female tennisists of Olympiad 2000. The results are rounded to 1st digit after the point.
+
+```{r}
+round(mean(a_data[!is.na(a_data$Year) & a_data$Year == 2000 & !is.na(a_data$Sport) & a_data$Sport == "Tennis" & 
+                    !is.na(a_data$Sex) & a_data$Sex == "F",]$Height,na.rm = TRUE),digits = 1)
+round(sd(a_data[!is.na(a_data$Year) & a_data$Year == 2000 & !is.na(a_data$Sport) & a_data$Sport == "Tennis" & 
+                    !is.na(a_data$Sex) & a_data$Sex == "F",]$Height,na.rm = TRUE),digits = 1)
+```
+
+**Step 6.** The type of sport with the participant of maximum weight is extracted.
+
+```{r}
+a_data[!is.na(a_data$Weight) & a_data$Weight == (max(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Weight, na.rm = TRUE)),]$Sport
+```
+
+**Step 7.** The number of gold medals receiving by women from 1998 to 2010 is extracted.
+
+```{r}
+nrow(a_data[!is.na(a_data$Year) & a_data$Year == seq(1998,2010) & !is.na(a_data$Sex) & a_data$Sex == "F" & 
+            !is.na(a_data$Medal) & a_data$Medal == "Gold",])
+```
+
+**Step 8.** The number of times John Aalberg participated in olympic games in *different* years.
+
+```{r}
+length(unique(a_data[!is.na(a_data$Name) & a_data$Name == "John Aalberg",]$Year))
+```
+
+**Step 9.** The number of paricipants of each age group in 2008 was calculated. The most represented is the group of age of 25-35, the least represented are people of age 45-55.
+
+```{r}
+nrow(a_data[!is.na(a_data$Age) & a_data$Age >=15 & a_data$Age <25 & !is.na(a_data$Year) & a_data$Year == 2008,])
+nrow(a_data[!is.na(a_data$Age) & a_data$Age >=25 & a_data$Age <35 & !is.na(a_data$Year) & a_data$Year == 2008,])
+nrow(a_data[!is.na(a_data$Age) & a_data$Age >=35 & a_data$Age <45 & !is.na(a_data$Year) & a_data$Year == 2008,])
+nrow(a_data[!is.na(a_data$Age) & a_data$Age >=45 & a_data$Age <=55 & !is.na(a_data$Year) & a_data$Year == 2008,])
+
+```
+
+**Step 10.** The difference between the number of sport types in 2002 and 1994 is calculated.
+
+```{r}
+length(unique(a_data[!is.na(a_data$Year) & a_data$Year == 2002,]$Sport)) -
+  length(unique(a_data[!is.na(a_data$Year) & a_data$Year == 1994,]$Sport))
+```
+
+**Step 11.** Top-3 countries for winter and summer olympic games by medal type is identified.
+
+```{r}
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Winter" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Gold",]$Team), decreasing = TRUE)[1:3]
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Winter" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Silver",]$Team), decreasing = TRUE)[1:3]
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Winter" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Bronze",]$Team), decreasing = TRUE)[1:3]
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Summer" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Gold",]$Team), decreasing = TRUE)[1:3]
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Summer" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Silver",]$Team), decreasing = TRUE)[1:3]
+sort(table(a_data[!is.na(a_data$Season) & a_data$Season == "Summer" &
+                    !is.na(a_data$Medal) & a_data$Medal == "Bronze",]$Team), decreasing = TRUE)[1:3]
+```
+
+**Step 12.** Height of participants is standartized.
+
+```{r}
+a_data$Height_z_scores = scale(a_data$Height, center = TRUE, scale = TRUE)
+```
+
+** Step 13.** Height of participants is min-max normalized.
+
+```{r}
+a_data$Height_min_max_scaled = (a_data$Height-min(a_data$Height,na.rm=TRUE))/(max(a_data$Height,na.rm=TRUE)-min(a_data$Height,na.rm=TRUE))
+```
+
+Here non-normalized and scaled height distributions are plotted.
+
+```{r}
+height = ggplot(a_data, aes(Height))+geom_density()
+height_z = ggplot(a_data, aes(Height_z_scores))+geom_density()
+height_sc = ggplot(a_data, aes(Height_min_max_scaled))+geom_density()
+plot_grid(height,height_z,height,height_sc,ncol = 2, nrow = 2)
+```
+
+**Step 14.** The height, weight and age are compared with t-test between two sexes (male and female). The height is significantly bigger for males then for females with t = 263.1, df = 139788, p-value < 2.2e-16. The weight is significantly bigger for males then for females with t = 297.34, df = 165274, p-value < 2.2e-16. The age is significantly bigger for males then for females with t = 97.814, df = 150733, p-value < 2.2e-16.
+
+```{r}
+t.test(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Height, a_data[!is.na(a_data$Sex) & a_data$Sex == "F",]$Height)
+t.test(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Weight, a_data[!is.na(a_data$Sex) & a_data$Sex == "F",]$Weight)
+t.test(a_data[!is.na(a_data$Sex) & a_data$Sex == "M",]$Age, a_data[!is.na(a_data$Sex) & a_data$Sex == "F",]$Age)
+```
+
+**Step 15.** The dependence of medal number and participants origin is checked with t-test. Checking for that was a reasonable step considering some consistentce we have got for top-3 medal-receiving countries (e.g. Norway, Canada). The medal receiving and team (country) of origin are dependent with X-squared = 29627, df = 1500, p-value < 2.2e-16.
+
+```{r}
+chisq.test(a_data$Team, a_data$Medal)
+```
+
+** Step 16. ** The popular opinion that basketball players are taller that average people is checked. Basketball players are taller than average olympic games participants with t = 83.829, df = 4000.2, p-value < 2.2e-16
+
+```{r}
+t.test(a_data[!is.na(a_data$Sport) & a_data$Sport == "Basketball",]$Height, a_data[!is.na(a_data$Height),]$Height)
+```
+
+
