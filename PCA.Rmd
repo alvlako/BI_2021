@@ -1,0 +1,57 @@
+---
+title: "PCA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+Uploading and preparing the data
+
+```{r}
+library('readr')
+library('vegan')
+a1 = read.csv('C:/train.csv')
+a2 = read.csv('C:/unique_m.csv')
+cond = cbind(a1, a2)
+cond$material = NULL
+```
+Dividing data to train and test, standartizing data
+
+```{r}
+train = cond[1:10000,]
+test = cond[10001:21263,]
+
+standard = function(df, df1, df2){
+  means = colMeans(df1)
+  sds = apply(df1, 2, sd)
+  for (c in colnames(df)){
+    train_mean = means[which(colnames(df1)==c)]
+    train_sd = sds[which(colnames(df1)==c)]
+    df[,which(colnames(df)==c)] = (df[,which(colnames(df)==c)]-train_mean)/train_sd
+    df2[,which(colnames(df2)==c)] = (df2[,which(colnames(df)==c)]-train_mean)/train_sd
+  }
+}
+
+scaled_train = train[,-which(colnames(train)=="critical_temp")]
+scaled_test = test[,-which(colnames(train)=="critical_temp")]
+standard(scaled_test,train, scaled_train)
+scaled_train = cbind(scaled_train, train$critical_temp)
+scaled_test = cbind(scaled_test, test$critical_temp)
+```
+Making linear model
+
+```{r}
+train_lm = lm(train$critical_temp~.,as.data.frame(scaled_train))
+head(summary(train_lm))
+test_lm = lm(test$critical_temp~.,as.data.frame(scaled_test))
+head(summary(test_lm))
+```
+Performing PCA
+
+```{r}
+our_pca <- rda(scaled_train)
+head(summary(our_pca)$cont$importance)
+```
