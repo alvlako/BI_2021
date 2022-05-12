@@ -1,0 +1,123 @@
+---
+title: "Mice_protein"
+output: html_document
+---
+
+## R Markdown
+Uploading and preparing the data
+
+```{r, error=TRUE}
+library('readr')
+library('vegan')
+mice = read.csv('C:/Data_Cortex_Nuclear.csv', dec=",")
+
+```
+Dataset description
+
+1) 1080 mice were involved
+```{r}
+length(unique(mice$MouseID))
+```
+2) mice might be divided by genotype, treatment, 
+behavior. All the possible combinations are 
+encoded in the column class
+```{r}
+unique(mice$Genotype)
+unique(mice$Treatment)
+unique(mice$Behavior)
+unique(mice$class)
+```
+3) Classes are quite well balanced
+
+```{r}
+barplot(prop.table(table(mice$class)),
+        col = rainbow(2),
+        ylim = c(0, 0.7),
+        main = "Class Distribution, class")
+barplot(prop.table(table(mice$Genotype)),
+        col = rainbow(2),
+        ylim = c(0, 0.7),
+        main = "Class Distribution, genotype")
+barplot(prop.table(table(mice$Treatment)),
+        col = rainbow(2),
+        ylim = c(0, 0.7),
+        main = "Class Distribution, treatment")
+barplot(prop.table(table(mice$Behavior)),
+        col = rainbow(2),
+        ylim = c(0, 0.7),
+        main = "Class Distribution, behavior")
+```
+4) NAs were found and replaced with the means of the columns.
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE) 
+colnames(mice)[colSums(is.na(mice)) > 0]
+for(i in 1:ncol(mice)){
+  mice[is.na(mice[,i]), i] <- mean(mice[,i], na.rm = TRUE)
+}
+```
+
+Comparing BDNF_N production by class. It shows that there are significant differences between some classes
+
+```{r}
+production = data.frame(mice$BDNF_N, as.factor(mice$class))
+names(production) = c("BDNF_N", "class")
+boxplot(BDNF_N ~ class, data = production,
+        xlab = "Class", ylab = "BDNF_N production")
+anova = aov(BDNF_N ~ class, data = production)
+summary(anova)
+tukey = TukeyHSD(anova, "class", ordered = TRUE)
+tukey_cl <-tukey$class
+tukey_cl
+```
+
+Prediction of ERBB4_N production
+
+Preparing dataset
+```{r}
+genes = mice
+genes$MouseID = NULL
+genes$Genotype = NULL
+genes$Treatment = NULL
+genes$Behavior = NULL
+genes$class = NULL
+```
+
+Making linear model. In general, the generated R-squared values and p-value are quite good. 
+```{r}
+genes1 = genes
+genes1$ERBB4_N = NULL
+gene_lm = lm(genes$ERBB4_N~.,genes1)
+summary(gene_lm)
+```
+Performing PCA
+
+```{r}
+our_pca <- rda(genes)
+head(summary(our_pca)$cont$importance)
+```
+
+Plotting PCA graphs
+
+```{r}
+
+colvec <- c("red2", "green4", "mediumblue")
+scrs <- scores(our_pca, display = c("sites", "species"), scaling = 3)
+str(scrs, max = 1)
+
+xlim <- with(scrs, range(species[,1], sites[,1]))
+ylim <- with(scrs, range(species[,2], sites[,2]))
+
+plot.new()
+plot.window(xlim = xlim, ylim = ylim, asp = 1)
+abline(h = 0, lty = "dotted")
+abline(v = 0, lty = "dotted")
+with(mice, points(scrs$sites, col = colvec[class],
+                      pch = 12, bg = colvec[class]))
+with(scrs, text(species, labels = rownames(species),
+                col = "darkcyan", cex = 0.5))
+axis(1)
+axis(2)
+title(xlab = "PC 1", ylab = "PC 2")
+box()
+```
